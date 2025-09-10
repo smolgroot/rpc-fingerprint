@@ -1,6 +1,10 @@
 # Ethereum RPC Fingerprinting Tool
 
-A comprehensive Python tool for fingerprinting Ethereum RPC endpoints to identify node implementations, versions, network configurations, and security characteristics.
+A comprehensive Python tool for fingerprinting Ethereum/EVM chains RPC endpoints to identify node implementations, versions, network configurations, and security characteristics.
+
+[![PyPI version](https://badge.fury.io/py/ethereum-rpc-fingerprinter.svg)](https://badge.fury.io/py/ethereum-rpc-fingerprinter)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
@@ -10,8 +14,9 @@ A comprehensive Python tool for fingerprinting Ethereum RPC endpoints to identif
 - 🚀 **Async Support**: Fingerprint multiple endpoints concurrently
 - 🔐 **Security Analysis**: Detect exposed accounts, admin interfaces, debug capabilities
 - 📋 **Method Discovery**: Enumerate supported RPC methods
-- 🎨 **Formatted Output**: Colored terminal output with tables
-- 📄 **JSON Export**: Export results to JSON for further analysis
+- 🎨 **Modern CLI**: Clean Click-based command-line interface with progress bars and colored output
+- 📄 **Multiple Formats**: Output results in table, JSON, or YAML format
+- 🐍 **Python API**: Use as a library in your Python projects
 
 ### Client Version Parsing
 
@@ -37,128 +42,221 @@ Client Version: Geth/v1.13.5-stable/linux-amd64/go1.21.4
 
 ## Installation
 
+### From PyPI (Recommended)
+
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+pip install ethereum-rpc-fingerprinter
+```
+
+### From Source
+
+```bash
+git clone https://github.com/yourusername/ethereum-rpc-fingerprinter.git
+cd ethereum-rpc-fingerprinter
+pip install -e .
 ```
 
 ## Quick Start
 
 ### Command Line Usage
 
+The tool provides a modern CLI with two command names:
+- `ethereum-rpc-fingerprinter` (full name)
+- `erf` (short alias)
+
+#### Basic Fingerprinting
+
 ```bash
 # Fingerprint a single endpoint
-python ethereum_rpc_fingerprinter.py http://localhost:8545
+erf fingerprint http://localhost:8545
 
-# Fingerprint multiple endpoints
-python ethereum_rpc_fingerprinter.py http://localhost:8545 http://localhost:8546
-
-# Use async mode for multiple endpoints
-python ethereum_rpc_fingerprinter.py --async-mode http://localhost:8545 http://localhost:8546
+# Multiple endpoints with async processing
+erf fingerprint -a http://localhost:8545 https://eth.llamarpc.com
 
 # Export results to JSON
-python ethereum_rpc_fingerprinter.py --output results.json http://localhost:8545
+erf fingerprint -o results.json http://localhost:8545
 
-# Quiet mode (JSON only)
-python ethereum_rpc_fingerprinter.py --quiet --output results.json http://localhost:8545
+# Different output formats
+erf fingerprint --format json http://localhost:8545
+erf fingerprint --format yaml http://localhost:8545
+erf fingerprint --format table http://localhost:8545  # default
+
+# Verbose output with progress
+erf fingerprint -v -a http://localhost:8545 https://cloudflare-eth.com
 ```
 
-### Python Library Usage
+#### Client Version Analysis
 
-```python
-from ethereum_rpc_fingerprinter import EthereumRPCFingerprinter, print_fingerprint_result
+```bash
+# Parse client version strings
+erf parse-version "Geth/v1.13.5-stable/linux-amd64/go1.21.4"
 
-# Create fingerprinter instance
-fingerprinter = EthereumRPCFingerprinter(timeout=10)
-
-# Fingerprint an endpoint
-result = fingerprinter.fingerprint("http://localhost:8545")
-
-# Print formatted result
-print_fingerprint_result(result)
-
-# Access individual fields
-print(f"Node Implementation: {result.node_implementation}")
-print(f"Client Version: {result.client_version}")
-print(f"Chain ID: {result.chain_id}")
+# Multiple versions at once
+erf parse-version \
+  "Geth/v1.13.5-stable/linux-amd64/go1.21.4" \
+  "Besu/v23.4.0/linux-x86_64/openjdk-java-17" \
+  "Nethermind/v1.20.3+77d89dbe/windows-x64/dotnet8.0.0"
 ```
 
-### Async Fingerprinting
+#### Additional Commands
+
+```bash
+# List supported implementations
+erf list-implementations
+
+# Include development tools
+erf list-implementations --include-dev
+
+# Get help for any command
+erf --help
+erf fingerprint --help
+```
+
+### Advanced CLI Usage
+
+```bash
+# Comprehensive analysis with all options
+erf fingerprint \
+  --verbose \
+  --async-mode \
+  --timeout 30 \
+  --max-concurrent 5 \
+  --format json \
+  --output comprehensive_report.json \
+  http://localhost:8545 \
+  https://eth.llamarpc.com \
+  https://cloudflare-eth.com
+
+# Automation-friendly (quiet mode)
+erf fingerprint --quiet --format json http://localhost:8545 | jq '.[]'
+```
+
+### Python API Usage
 
 ```python
 import asyncio
-from ethereum_rpc_fingerprinter import AsyncEthereumRPCFingerprinter
+from ethereum_rpc_fingerprinter import EthereumRPCFingerprinter
 
+# Create fingerprinter instance
+fingerprinter = EthereumRPCFingerprinter()
+
+# Synchronous fingerprinting
+result = fingerprinter.fingerprint("http://localhost:8545")
+print(f"Implementation: {result.implementation}")
+print(f"Node Version: {result.node_version}")
+print(f"Programming Language: {result.programming_language}")
+print(f"Language Version: {result.language_version}")
+print(f"Operating System: {result.operating_system}")
+print(f"Architecture: {result.architecture}")
+
+# Asynchronous fingerprinting
 async def fingerprint_multiple():
-    fingerprinter = AsyncEthereumRPCFingerprinter(timeout=10, max_concurrent=5)
-    
-    endpoints = [
+    results = await fingerprinter.fingerprint_async([
         "http://localhost:8545",
-        "http://localhost:8546",
-        "https://mainnet.infura.io/v3/YOUR_PROJECT_ID"
-    ]
-    
-    results = await fingerprinter.fingerprint_multiple(endpoints)
+        "https://eth.llamarpc.com",
+        "https://cloudflare-eth.com"
+    ])
     
     for result in results:
-        print(f"Endpoint: {result.endpoint}")
-        print(f"Implementation: {result.node_implementation}")
+        print(f"{result.endpoint}: {result.implementation} {result.node_version}")
 
-# Run async fingerprinting
 asyncio.run(fingerprint_multiple())
+
+# Client version parsing
+version_info = fingerprinter.parse_client_version("Geth/v1.13.5-stable/linux-amd64/go1.21.4")
+print(f"Language: {version_info.programming_language} {version_info.language_version}")
+print(f"Platform: {version_info.operating_system} {version_info.architecture}")
 ```
 
-## Examples
+## Example Output
 
-Run the example script to see various usage patterns:
+### Geth Node
+```
+Fingerprinting: http://localhost:8545
 
-```bash
-python example_usage.py
+🔍 Basic Information:
+┌─────────────────┬─────────────────────────────────┐
+│ Endpoint        │ http://localhost:8545           │
+│ Implementation  │ Geth                            │
+│ Client Version  │ Geth/v1.13.5-stable-3f...      │
+│ Node Version    │ 1.13.5-stable                  │
+│ Language        │ Go 1.21.4                      │
+│ Platform        │ Linux amd64                     │
+│ Chain ID        │ 1 (Ethereum Mainnet)           │
+│ Network ID      │ 1                               │
+│ Block Height    │ 18,750,123                      │
+│ Syncing         │ No                              │
+└─────────────────┴─────────────────────────────────┘
+
+📊 Network Status:
+┌─────────────────┬─────────────────────────────────┐
+│ Gas Price       │ 15.2 Gwei                       │
+│ Peer Count      │ 47 peers                        │
+│ Mining          │ No                              │
+│ Hashrate        │ 0 H/s                           │
+└─────────────────┴─────────────────────────────────┘
+
+🔒 Security Information:
+┌─────────────────┬─────────────────────────────────┐
+│ Accounts        │ None exposed                    │
+│ Debug Interface │ Not detected                    │
+│ Admin Interface │ Not detected                    │
+└─────────────────┴─────────────────────────────────┘
+
+🛠️ Supported Methods:
+eth_accounts, eth_blockNumber, eth_call, eth_chainId, eth_estimateGas,
+eth_gasPrice, eth_getBalance, eth_getBlockByHash, eth_getBlockByNumber,
+eth_getCode, eth_getLogs, eth_getStorageAt, eth_getTransactionByHash,
+eth_getTransactionCount, eth_getTransactionReceipt, eth_hashrate,
+eth_mining, eth_sendRawTransaction, eth_syncing, net_listening,
+net_peerCount, net_version, web3_clientVersion, web3_sha3
 ```
 
-## What Gets Fingerprinted
+### Hardhat Development Node
+```
+Fingerprinting: http://localhost:8545
 
-### Basic Information
-- Client version string
-- Node implementation (Geth, Parity, etc.)
-- Network ID and Chain ID
-- Protocol version
-- Response time
+🔍 Basic Information:
+┌─────────────────┬─────────────────────────────────┐
+│ Endpoint        │ http://localhost:8545           │
+│ Implementation  │ Hardhat                         │
+│ Client Version  │ HardhatNetwork/2.17.2/@hard... │
+│ Node Version    │ 2.17.2                          │
+│ Language        │ JavaScript (Node.js)            │
+│ Platform        │ Unknown                         │
+│ Chain ID        │ 31337 (Hardhat Network)         │
+│ Network ID      │ 31337                           │
+│ Block Height    │ 0                               │
+│ Syncing         │ No                              │
+└─────────────────┴─────────────────────────────────┘
 
-### Network Status
-- Current block number
-- Gas price
-- Peer count
-- Syncing status
-- Mining status and hashrate
+🔒 Security Information:
+┌─────────────────┬─────────────────────────────────┐
+│ Accounts        │ 20 accounts exposed            │
+│ Debug Interface │ Available                       │
+│ Admin Interface │ Not detected                    │
+└─────────────────┴─────────────────────────────────┘
 
-### Security Information
-- Exposed accounts
-- Admin namespace availability
-- Debug namespace availability
-- Transaction pool access
+⚠️  Development Environment Detected
+```
 
-### Method Discovery
-- Enumerate all supported RPC methods
-- Group by namespace (eth, net, web3, etc.)
+## Supported Implementations
 
-### Advanced Features
-- Block structure analysis
-- Implementation-specific namespace detection
-- Custom method testing
+### Production Nodes
+- **Geth** (Go Ethereum) - Go implementation
+- **Besu** (Hyperledger Besu) - Java implementation  
+- **Nethermind** - .NET implementation
+- **Erigon** (formerly TurboGeth) - Go implementation
+- **Parity/OpenEthereum** - Rust implementation (legacy)
 
-## Node Implementation Detection
+### Development Tools
+- **Hardhat Network** - JavaScript/TypeScript
+- **Ganache** - JavaScript
+- **Anvil** (Foundry) - Rust
 
-The tool can identify these Ethereum client implementations:
+## CLI Documentation
 
-- **Geth** - Most common Ethereum client
-- **Parity/OpenEthereum** - Rust-based client
-- **Besu** - Java-based enterprise client
-- **Nethermind** - .NET-based client
-- **Erigon** - Go-based archive node
-- **Anvil** - Local development node (Foundry)
-- **Hardhat** - Development environment
-- **Ganache** - Testing blockchain
+For comprehensive CLI usage, see [CLI_USAGE.md](CLI_USAGE.md).
 
 ## Security Considerations
 
@@ -170,40 +268,39 @@ This tool is designed for:
 
 **Important**: Only use this tool on endpoints you own or have explicit permission to test. Unauthorized scanning of RPC endpoints may violate terms of service or be considered malicious activity.
 
-## Output Format
+## Contributing
 
-### Terminal Output
-- Colored, formatted tables showing all gathered information
-- Grouped by categories (Basic Info, Network Status, etc.)
-- Error reporting for failed operations
-
-### JSON Output
-```json
-{
-  "endpoint": "http://localhost:8545",
-  "client_version": "Geth/v1.10.26-stable/linux-amd64/go1.18.5",
-  "node_implementation": "Geth",
-  "network_id": 1,
-  "chain_id": 1,
-  "block_number": 18500000,
-  "gas_price": 20000000000,
-  "peer_count": 25,
-  "syncing": false,
-  "mining": false,
-  "supported_methods": ["web3_clientVersion", "eth_blockNumber", ...],
-  "additional_info": {
-    "admin_namespace": true,
-    "debug_namespace": true,
-    "txpool_namespace": true
-  },
-  "errors": []
-}
-```
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`python -m pytest`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Disclaimer
+## Changelog
 
-This tool is for educational and authorized security testing purposes only. Users are responsible for ensuring they have proper authorization before scanning any RPC endpoints. The authors are not responsible for any misuse of this tool.
+### v0.3.0 (Latest)
+- Migrated to Click CLI framework with modern interface
+- Added async processing for multiple endpoints
+- Enhanced output formatting with colored tables
+- Added YAML output support
+- Published to PyPI with easy installation
+- Added comprehensive CLI documentation
+- Improved error handling and progress indication
+
+### v0.2.0
+- Added detailed client version parsing
+- Enhanced security analysis with language/OS detection
+- Improved method detection and categorization
+- Better error handling and timeout management
+
+### v0.1.0
+- Initial release with basic fingerprinting
+- Support for major Ethereum client implementations
+- JSON export functionality
+- Basic client version detection

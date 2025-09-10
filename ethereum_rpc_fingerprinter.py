@@ -11,6 +11,7 @@ import time
 import asyncio
 import aiohttp
 import requests
+import click
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, asdict
 from web3 import Web3
@@ -742,41 +743,228 @@ def print_fingerprint_result(result: FingerprintResult):
             else:
                 print(f"  {key}: {value}")
 
-def main():
-    """Main function for command-line usage"""
-    import argparse
+
+def _save_results(results: List[FingerprintResult], output_path: str, format_type: str, verbose: bool = False):
+    """Save results to file in specified format"""
+    if verbose:
+        click.echo(f"💾 Saving results to {output_path} in {format_type} format")
     
-    parser = argparse.ArgumentParser(description="Ethereum RPC Host Fingerprinting Tool")
-    parser.add_argument("endpoints", nargs="+", help="RPC endpoints to fingerprint")
-    parser.add_argument("--timeout", type=int, default=10, help="Request timeout in seconds")
-    parser.add_argument("--async-mode", action="store_true", help="Use async fingerprinting for multiple endpoints")
-    parser.add_argument("--output", help="Output file for JSON results")
-    parser.add_argument("--quiet", action="store_true", help="Only output JSON, no formatted display")
+    data = [asdict(result) for result in results]
     
-    args = parser.parse_args()
-    
-    if getattr(args, 'async_mode') and len(args.endpoints) > 1:
-        # Use async fingerprinting
-        async def run_async():
-            fingerprinter = AsyncEthereumRPCFingerprinter(timeout=args.timeout)
-            return await fingerprinter.fingerprint_multiple(args.endpoints)
-        
-        results = asyncio.run(run_async())
-    else:
-        # Use sync fingerprinting
-        fingerprinter = EthereumRPCFingerprinter(timeout=args.timeout)
-        results = [fingerprinter.fingerprint(endpoint) for endpoint in args.endpoints]
-    
-    # Output results
-    if args.output:
-        with open(args.output, 'w') as f:
-            json.dump([asdict(result) for result in results], f, indent=2, default=str)
-        if not args.quiet:
-            print(f"Results saved to {args.output}")
-    
-    if not args.quiet:
-        for result in results:
+    try:
+        with open(output_path, 'w') as f:
+            if format_type == 'json':
+                json.dump(data, f, indent=2, default=str)
+            elif format_type == 'yaml':
+                import yaml
+                yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            else:  # table format - save as JSON but display as table
+                json.dump(data, f, indent=2, default=str)
+    except Exception as e:
+        click.echo(f"❌ Failed to save results: {e}", err=True)
+        raise
+
+
+def _display_results(results: List[FingerprintResult], format_type: str):
+    """Display results in specified format"""
+    if format_type == 'json':
+        data = [asdict(result) for result in results]
+        click.echo(json.dumps(data, indent=2, default=str))
+    elif format_type == 'yaml':
+        import yaml
+        data = [asdict(result) for result in results]
+        click.echo(yaml.dump(data, default_flow_style=False, sort_keys=False))
+    else:  # table format (default)
+        for i, result in enumerate(results):
+            if i > 0:
+                click.echo()  # Add spacing between results
             print_fingerprint_result(result)
 
+
+# CLI Configuration
+@click.group()
+@click.version_option(version='1.0.0', prog_name='ethereum-rpc-fingerprinter')
+def cli():
+    """Ethereum RPC Fingerprinting Tool Suite"""
+    pass
+
+
+@cli.command()
+@click.argument('client_versions', nargs=-1, required=True)
+def parse_version(client_versions):
+    """
+    Parse client version strings to extract detailed information.
+    
+    CLIENT_VERSIONS: One or more client version strings to parse
+    
+    Example:
+    ethereum-rpc-fingerprinter parse-version "Geth/v1.13.5-stable/linux-amd64/go1.21.4"
+    """
+    fingerprinter = EthereumRPCFingerprinter()
+    
+    for version_str in client_versions:
+        click.echo(f"\n📋 Parsing: {version_str}")
+        click.echo("-" * 60)
+        
+        implementation = fingerprinter._extract_node_implementation(version_str)
+        parsed = fingerprinter._parse_client_version(version_str)
+        
+        # Create a table of parsed information
+        table_data = [
+            ["Implementation", implementation or "Unknown"],
+            ["Node Version", parsed.get('node_version', 'N/A')],
+            ["Programming Language", parsed.get('programming_language', 'N/A')],
+            ["Language Version", parsed.get('language_version', 'N/A')],
+            ["Operating System", parsed.get('operating_system', 'N/A')],
+            ["Architecture", parsed.get('architecture', 'N/A')],
+        ]
+        
+        # Add build info if available
+        if parsed.get('build_info') and any(parsed['build_info'].values()):
+            for key, value in parsed['build_info'].items():
+                table_data.append([f"Build {key.replace('_', ' ').title()}", value])
+        
+        click.echo(tabulate(table_data, headers=["Property", "Value"], tablefmt="grid"))
+
+
+@cli.command()
+@click.option('--include-dev', is_flag=True, help='Include development/testing nodes')
+def list_implementations(include_dev):
+    """List supported Ethereum client implementations."""
+    
+    implementations = {
+        "Production Clients": [
+            ("Geth", "Go-based Ethereum client (most popular)"),
+            ("Besu", "Java-based enterprise Ethereum client"),
+            ("Nethermind", ".NET-based Ethereum client"),
+            ("Erigon", "Go-based archive node with performance focus"),
+            ("Parity/OpenEthereum", "Rust-based Ethereum client (deprecated)")
+        ],
+        "Development/Testing": [
+            ("Anvil", "Local development node (Foundry)"),
+            ("Hardhat Network", "Ethereum development environment"),
+            ("Ganache", "Personal blockchain for development")
+        ]
+    }
+    
+    for category, clients in implementations.items():
+        if category == "Development/Testing" and not include_dev:
+            continue
+            
+        click.echo(f"\n{Fore.GREEN}{category}:{Style.RESET_ALL}")
+        for name, description in clients:
+            click.echo(f"  • {Fore.CYAN}{name}{Style.RESET_ALL}: {description}")
+
+
+# Add the main command to the CLI group as the default
+@cli.command(name='fingerprint')
+@click.argument('endpoints', nargs=-1, required=True)
+@click.option('--timeout', '-t', default=10, help='Request timeout in seconds', show_default=True)
+@click.option('--async-mode', '-a', is_flag=True, help='Use async fingerprinting for multiple endpoints')
+@click.option('--output', '-o', type=click.Path(), help='Output file for JSON results')
+@click.option('--quiet', '-q', is_flag=True, help='Only output JSON, no formatted display')
+@click.option('--format', 'output_format', type=click.Choice(['table', 'json', 'yaml']), 
+              default='table', help='Output format', show_default=True)
+@click.option('--max-concurrent', default=10, help='Maximum concurrent requests for async mode', show_default=True)
+@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
+def fingerprint_command(endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose):
+    """
+    Fingerprint Ethereum RPC endpoints.
+    
+    ENDPOINTS: One or more RPC endpoint URLs to fingerprint
+    
+    Examples:
+    
+    \b
+    # Single endpoint
+    ethereum-rpc-fingerprinter fingerprint http://localhost:8545
+    
+    \b
+    # Multiple endpoints with async mode
+    ethereum-rpc-fingerprinter fingerprint -a http://localhost:8545 https://eth.llamarpc.com
+    
+    \b
+    # Export to JSON
+    ethereum-rpc-fingerprinter fingerprint -o results.json http://localhost:8545
+    """
+    return main(endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose)
+
+
+def main(endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose):
+    """Core fingerprinting logic"""
+    if verbose:
+        click.echo(f"🔍 Starting fingerprinting of {len(endpoints)} endpoint(s)...")
+        click.echo(f"⚙️  Configuration: timeout={timeout}s, async={async_mode}, format={output_format}")
+    
+    try:
+        # Choose fingerprinting method
+        if async_mode and len(endpoints) > 1:
+            if verbose:
+                click.echo("🚀 Using async fingerprinting mode")
+            
+            async def run_async():
+                fingerprinter = AsyncEthereumRPCFingerprinter(timeout=timeout, max_concurrent=max_concurrent)
+                return await fingerprinter.fingerprint_multiple(list(endpoints))
+            
+            results = asyncio.run(run_async())
+        else:
+            if verbose:
+                click.echo("🔄 Using synchronous fingerprinting mode")
+            
+            fingerprinter = EthereumRPCFingerprinter(timeout=timeout)
+            results = []
+            
+            if len(endpoints) > 1 and not quiet:
+                with click.progressbar(endpoints, label='Fingerprinting endpoints') as bar:
+                    for endpoint in bar:
+                        result = fingerprinter.fingerprint(endpoint)
+                        results.append(result)
+            else:
+                for endpoint in endpoints:
+                    result = fingerprinter.fingerprint(endpoint)
+                    results.append(result)
+        
+        # Handle output
+        if output:
+            _save_results(results, output, output_format, verbose)
+            if not quiet:
+                click.echo(f"✅ Results saved to {output}")
+        
+        # Display results unless quiet mode
+        if not quiet:
+            _display_results(results, output_format)
+            
+    except KeyboardInterrupt:
+        click.echo("\n❌ Operation cancelled by user", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error: {e}", err=True)
+        if verbose:
+            import traceback
+            click.echo(traceback.format_exc(), err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    main()
+    # When called directly, use the simple main function for backwards compatibility
+    @click.command()
+    @click.argument('endpoints', nargs=-1, required=True)
+    @click.option('--timeout', '-t', default=10, help='Request timeout in seconds', show_default=True)
+    @click.option('--async-mode', '-a', is_flag=True, help='Use async fingerprinting for multiple endpoints')
+    @click.option('--output', '-o', type=click.Path(), help='Output file for JSON results')
+    @click.option('--quiet', '-q', is_flag=True, help='Only output JSON, no formatted display')
+    @click.option('--format', 'output_format', type=click.Choice(['table', 'json', 'yaml']), 
+                  default='table', help='Output format', show_default=True)
+    @click.option('--max-concurrent', default=10, help='Maximum concurrent requests for async mode', show_default=True)
+    @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
+    @click.version_option(version='1.0.0', prog_name='ethereum-rpc-fingerprinter')
+    def standalone_main(endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose):
+        """
+        Ethereum RPC Host Fingerprinting Tool
+        
+        A comprehensive tool for fingerprinting Ethereum RPC endpoints to identify
+        node implementations, versions, network configurations, and security characteristics.
+        """
+        main(endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose)
+    
+    standalone_main()

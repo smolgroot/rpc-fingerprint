@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ethereum-rpc-fingerprinter"
+version = "1.0.0"
+description = "A comprehensive tool for fingerprinting Ethereum RPC endpoints"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+maintainers = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = [
+    "ethereum", "rpc", "fingerprinting", "blockchain", "web3", 
+    "geth", "besu", "nethermind", "erigon", "security", "analysis"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Networking",
+    "Topic :: System :: Systems Administration",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "web3>=6.0.0",
+    "requests>=2.28.0",
+    "aiohttp>=3.8.0",
+    "colorama>=0.4.4",
+    "tabulate>=0.9.0",
+    "pyyaml>=6.0",
+    "click>=8.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+    "twine>=4.0.0",
+    "build>=0.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/ethereum-rpc-fingerprinter"
+Documentation = "https://github.com/yourusername/ethereum-rpc-fingerprinter#readme"
+Repository = "https://github.com/yourusername/ethereum-rpc-fingerprinter"
+"Bug Reports" = "https://github.com/yourusername/ethereum-rpc-fingerprinter/issues"
+
+[project.scripts]
+ethereum-rpc-fingerprinter = "ethereum_rpc_fingerprinter:cli"
+erf = "ethereum_rpc_fingerprinter:cli"
+
+[tool.setuptools]
+py-modules = ["ethereum_rpc_fingerprinter"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ethereum_rpc_fingerprinter*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

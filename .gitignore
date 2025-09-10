@@ -16,3 +16,12 @@ __pycache__/
 coverage/
 htmlcov/
 .tox/
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+.pyright/
