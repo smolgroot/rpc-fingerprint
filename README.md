@@ -8,16 +8,16 @@ A comprehensive Python tool for fingerprinting Ethereum/EVM chains RPC endpoints
 
 ## Features
 
-## Features
-
 - 🔍 **Enhanced Node Detection**: Identify Geth, Parity/OpenEthereum, Besu, Nethermind, Erigon, Anvil, Hardhat, Ganache, TurboGeth
 - 🧬 **Detailed Client Analysis**: Extract programming language, version, OS, and architecture from client version strings
 - 📊 **Network Information**: Chain ID, network ID, block height, gas prices, peer count
-- 🚀 **Async Support**: Fingerprint multiple endpoints concurrently
-- 📁 **File Input**: Read endpoint lists from files (one URL per line) - perfect for pentesting workflows
+- 🚀 **Async Support**: Fingerprint multiple endpoints concurrently with configurable limits
+- 📁 **Bulk Scanning**: Read endpoint lists from files (one URL per line) - perfect for pentesting workflows
+- ✨ **Rich Interface**: Beautiful progress bars with real-time completion tracking, ETA, and throughput metrics
+- 🎨 **Modern Tables**: Professional rounded tables with color-coded values and emoji icons
 - 🔐 **Security Analysis**: Detect exposed accounts, admin interfaces, debug capabilities
 - 📋 **Method Discovery**: Enumerate supported RPC methods
-- 🎨 **Modern CLI**: Clean Click-based command-line interface with progress bars and colored output
+- 🖥️ **Enhanced CLI**: Click-based interface with verbose output, progress tracking, and intuitive commands
 - 📄 **Multiple Formats**: Output results in table, JSON, or YAML format
 - 🐍 **Python API**: Use as a library in your Python projects
 
@@ -92,6 +92,22 @@ erf fingerprint --format table http://localhost:8545  # default
 
 # Verbose output with progress
 erf fingerprint -v -a http://localhost:8545 https://cloudflare-eth.com
+```
+
+#### Bulk Scanning (Perfect for Pentesting) 🎯
+
+```bash
+# Scan from file with beautiful progress tracking
+erf fingerprint -f endpoints.txt --async --verbose
+
+# High-performance bulk scanning with custom concurrency
+erf fingerprint -f endpoints.txt --async --max-concurrent 20 --timeout 5
+
+# Export bulk results to file
+erf fingerprint -f endpoints.txt --async -o scan_results.json --format json
+
+# Quiet mode for automation (progress bar only)
+erf fingerprint -f endpoints.txt --async --quiet --format json
 ```
 
 #### Client Version Analysis
@@ -310,7 +326,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
-### v0.3.0 (Latest)
+### v1.1.0 (2025-09-12) - Current Release ✨
+- 📁 **File Input Support**: Added `--file` / `-f` option to read endpoint lists from files (one URL per line)
+- 🎨 **Rich Integration**: Beautiful progress bars with real-time completion tracking, elapsed time, and ETA
+- ✨ **Enhanced Tables**: Modern rounded tables with color-coded values and professional styling
+- 🚀 **Improved UX**: Spinner animations, better visual feedback, and emoji icons for different sections
+- 📊 **Progress Tracking**: Real-time progress bars for async scanning with completion rates and timing
+- 🔧 **Better CLI**: Enhanced verbose output with Rich console formatting and improved readability
+- 📦 **Bulk Scanning**: Perfect for pentesting workflows - scan thousands of endpoints with visual progress
+
+### v1.0.0 (2025-09-11)
+- 🎉 **Major Release**: Migrated to Click CLI framework with modern interface
+- ⚡ **Async Processing**: Added async support for multiple endpoints with configurable concurrency
+- 🌈 **Enhanced Output**: Colored tables, improved formatting, and better error handling
+- 📄 **YAML Support**: Added YAML output format alongside JSON and table formats
+- 📦 **PyPI Publication**: Published to PyPI with easy `pip install` and automated publishing
+- 📚 **Documentation**: Added comprehensive CLI documentation and usage examples
+- 🔧 **Improved Parsing**: Enhanced client version parsing with better language/OS detection
+
+### v0.3.0
 - Migrated to Click CLI framework with modern interface
 - Added async processing for multiple endpoints
 - Enhanced output formatting with colored tables

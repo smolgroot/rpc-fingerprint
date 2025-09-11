@@ -775,7 +775,7 @@ class AsyncEthereumRPCFingerprinter:
             'language_version': None,
             'operating_system': None,
             'architecture': None,
-            'build_info': None
+            'build_info': {}
         }
         
         if not client_version:
@@ -858,7 +858,13 @@ class AsyncEthereumRPCFingerprinter:
                 
                 # Build info (commit hashes, timestamps, etc.)
                 elif re.match(r'^[a-f0-9]{7,}', part) or '+' in part:
-                    result['build_info'] = part
+                    # Try to identify what type of build info this is
+                    if re.match(r'^[a-f0-9]{7,}$', part):
+                        result['build_info']['commit_hash'] = part
+                    elif '+' in part:
+                        result['build_info']['build_info'] = part
+                    else:
+                        result['build_info']['build_info'] = part
         
         # Special handling for specific implementations
         impl_lower = client_version.lower()
@@ -961,16 +967,25 @@ def print_fingerprint_result(result: FingerprintResult):
         console.print(basic_table)
     
     # Build Information (if available)
-    if result.build_info and any(result.build_info.values()):
-        build_table = Table(title="🔧 Build Information", box=box.ROUNDED)
-        build_table.add_column("Property", style="cyan", no_wrap=True)
-        build_table.add_column("Value", style="white")
-        
-        for key, value in result.build_info.items():
-            if value:
-                build_table.add_row(key.replace('_', ' ').title(), str(value))
-        
-        if build_table.row_count > 0:
+    if result.build_info:
+        # Handle both dict and string formats for backward compatibility
+        if isinstance(result.build_info, dict) and any(result.build_info.values()):
+            build_table = Table(title="🔧 Build Information", box=box.ROUNDED)
+            build_table.add_column("Property", style="cyan", no_wrap=True)
+            build_table.add_column("Value", style="white")
+            
+            for key, value in result.build_info.items():
+                if value:
+                    build_table.add_row(key.replace('_', ' ').title(), str(value))
+            
+            if build_table.row_count > 0:
+                console.print(build_table)
+        elif isinstance(result.build_info, str):
+            # Handle legacy string format
+            build_table = Table(title="🔧 Build Information", box=box.ROUNDED)
+            build_table.add_column("Property", style="cyan", no_wrap=True)
+            build_table.add_column("Value", style="white")
+            build_table.add_row("Build Info", result.build_info)
             console.print(build_table)
     
     # Network Status Table
