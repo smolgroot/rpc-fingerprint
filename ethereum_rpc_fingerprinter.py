@@ -187,6 +187,10 @@ class EthereumRPCFingerprinter:
             return 'Nethermind'
         elif 'erigon' in client_lower:
             return 'Erigon'
+        elif 'reth' in client_lower:
+            return 'Reth'
+        elif 'ethereumjs' in client_lower:
+            return 'EthereumJS'
         elif 'anvil' in client_lower:
             return 'Anvil'
         elif 'hardhat' in client_lower:
@@ -755,6 +759,10 @@ class AsyncEthereumRPCFingerprinter:
             return 'Nethermind'
         elif 'erigon' in client_lower:
             return 'Erigon'
+        elif 'reth' in client_lower:
+            return 'Reth'
+        elif 'ethereumjs' in client_lower:
+            return 'EthereumJS'
         elif 'anvil' in client_lower:
             return 'Anvil'
         elif 'hardhat' in client_lower:

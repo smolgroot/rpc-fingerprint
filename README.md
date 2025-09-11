@@ -8,7 +8,7 @@ A comprehensive Python tool for fingerprinting Ethereum/EVM chains RPC endpoints
 
 ## Features
 
-- 🔍 **Enhanced Node Detection**: Identify Geth, Parity/OpenEthereum, Besu, Nethermind, Erigon, Anvil, Hardhat, Ganache, TurboGeth
+- 🔍 **Enhanced Node Detection**: Identify Geth, Parity/OpenEthereum, Besu, Nethermind, Erigon, Reth, EthereumJS, Anvil, Hardhat, Ganache, TurboGeth
 - 🧬 **Detailed Client Analysis**: Extract programming language, version, OS, and architecture from client version strings
 - 📊 **Network Information**: Chain ID, network ID, block height, gas prices, peer count
 - 🚀 **Async Support**: Fingerprint multiple endpoints concurrently with configurable limits
@@ -272,7 +272,9 @@ Fingerprinting: http://localhost:8545
 - **Besu** (Hyperledger Besu) - Java implementation  
 - **Nethermind** - .NET implementation
 - **Erigon** (formerly TurboGeth) - Go implementation
+- **Reth** - Rust implementation (modern)
 - **Parity/OpenEthereum** - Rust implementation (legacy)
+- **EthereumJS** - TypeScript implementation (beta)
 
 ### Development Tools
 - **Hardhat Network** - JavaScript/TypeScript
