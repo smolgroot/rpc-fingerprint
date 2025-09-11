@@ -20,7 +20,7 @@ def read_requirements():
 
 setup(
     name="ethereum-rpc-fingerprinter",
-    version="1.0.0",
+    version="1.1.0",
     author="smolgroot",
     author_email="smolgroot@example.com",
     description="A comprehensive tool for fingerprinting Ethereum RPC endpoints",
