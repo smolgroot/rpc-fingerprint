@@ -32,6 +32,15 @@ ethereum-rpc-fingerprinter fingerprint http://localhost:8545
 # Multiple endpoints with async processing
 erf fingerprint -a http://localhost:8545 https://eth.llamarpc.com
 
+# From file (one URL per line)
+erf fingerprint -f endpoints.txt
+
+# From file with async mode
+erf fingerprint -f endpoints.txt -a
+
+# Combine file and direct URLs
+erf fingerprint -f endpoints.txt http://localhost:8545 https://eth.llamarpc.com
+
 # With custom timeout and verbose output
 erf fingerprint -v -t 30 https://cloudflare-eth.com
 
@@ -45,7 +54,30 @@ erf fingerprint --format table https://cloudflare-eth.com  # default
 
 # Quiet mode (no formatted output)
 erf fingerprint -q --format json https://cloudflare-eth.com
+
+# File input with JSON output
+erf fingerprint -f endpoints.txt --format json --output results.json
 ```
+
+##### File Format for Endpoint Lists
+
+Create a text file with one URL per line. Comments (lines starting with `#`) and empty lines are ignored:
+
+```text
+# Ethereum Mainnet endpoints
+https://ethereum-rpc.publicnode.com
+https://eth.llamarpc.com
+https://cloudflare-eth.com
+
+# BSC endpoints  
+https://binance.llamarpc.com
+https://bsc-dataseed.bnbchain.org
+
+# Local development (commented out)
+# http://localhost:8545
+```
+
+The tool will automatically validate URLs and skip invalid entries with warnings in verbose mode.
 
 #### 2. Parse Client Version Strings
 
@@ -79,7 +111,7 @@ erf list-implementations --include-dev
 
 #### Fingerprint Options
 - `-t, --timeout INTEGER` - Request timeout in seconds (default: 10)
-- `-a, --async-mode` - Use async fingerprinting for multiple endpoints
+- `-a, --async` - Use async fingerprinting for multiple endpoints
 - `-o, --output PATH` - Output file for results
 - `-q, --quiet` - Only output data, no formatted display
 - `--format [table|json|yaml]` - Output format (default: table)
@@ -154,6 +186,100 @@ Output:
 ```
 
 ## Integration Examples
+
+### File-Based Scanning
+
+The tool supports reading endpoints from files, making it ideal for penetration testing and bulk analysis workflows.
+
+#### Basic File Scanning
+
+```bash
+# Scan all endpoints in a file
+erf fingerprint -f rpc_endpoints.txt
+
+# Async scanning for better performance
+erf fingerprint -f rpc_endpoints.txt --async --max-concurrent 10
+
+# Export results for further analysis
+erf fingerprint -f rpc_endpoints.txt --format json --output scan_results.json
+
+# Verbose mode for detailed progress
+erf fingerprint -f rpc_endpoints.txt --verbose --timeout 15
+```
+
+#### Advanced File Operations
+
+```bash
+# Combine file input with direct URLs
+erf fingerprint -f known_endpoints.txt https://new-endpoint.com
+
+# Scan with specific timeout and concurrency
+erf fingerprint -f large_endpoint_list.txt -a --timeout 5 --max-concurrent 20
+
+# Generate YAML report
+erf fingerprint -f endpoints.txt --format yaml --output report.yaml
+
+# Quiet JSON output for processing
+erf fingerprint -f endpoints.txt --quiet --format json | jq '.[] | select(.node_implementation == "Geth")'
+```
+
+#### File Format Examples
+
+**Simple endpoint list:**
+```text
+https://ethereum-rpc.publicnode.com
+https://eth.llamarpc.com
+https://cloudflare-eth.com
+```
+
+**Commented endpoint list:**
+```text
+# Production endpoints
+https://ethereum-rpc.publicnode.com
+https://cloudflare-eth.com
+
+# BSC endpoints
+https://binance.llamarpc.com
+https://bsc-dataseed.bnbchain.org
+
+# Test endpoints (disabled)
+# http://localhost:8545
+# http://localhost:8546
+```
+
+**Mixed protocol support:**
+```text
+# HTTP endpoints
+https://ethereum-rpc.publicnode.com
+http://localhost:8545
+
+# WebSocket endpoints  
+wss://ethereum-rpc.publicnode.com
+ws://localhost:8546
+```
+
+#### Pentesting Workflow
+
+```bash
+# 1. Prepare target list
+cat > targets.txt << EOF
+https://target1.example.com:8545
+https://target2.example.com:8545
+https://target3.example.com:3000
+EOF
+
+# 2. Fast initial scan
+erf fingerprint -f targets.txt --async --timeout 3 --format json --quiet > initial_scan.json
+
+# 3. Filter responsive endpoints
+jq -r '.[] | select(.client_version != null) | .endpoint' initial_scan.json > responsive.txt
+
+# 4. Detailed scan of responsive endpoints
+erf fingerprint -f responsive.txt --verbose --timeout 30 --format yaml --output detailed_results.yaml
+
+# 5. Extract specific information
+jq '.[] | {endpoint, implementation: .node_implementation, version: .client_version, accounts: .accounts}' initial_scan.json
+```
 
 ### Shell Scripting
 

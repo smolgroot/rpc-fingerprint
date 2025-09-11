@@ -8,10 +8,13 @@ A comprehensive Python tool for fingerprinting Ethereum/EVM chains RPC endpoints
 
 ## Features
 
+## Features
+
 - 🔍 **Enhanced Node Detection**: Identify Geth, Parity/OpenEthereum, Besu, Nethermind, Erigon, Anvil, Hardhat, Ganache, TurboGeth
 - 🧬 **Detailed Client Analysis**: Extract programming language, version, OS, and architecture from client version strings
 - 📊 **Network Information**: Chain ID, network ID, block height, gas prices, peer count
 - 🚀 **Async Support**: Fingerprint multiple endpoints concurrently
+- 📁 **File Input**: Read endpoint lists from files (one URL per line) - perfect for pentesting workflows
 - 🔐 **Security Analysis**: Detect exposed accounts, admin interfaces, debug capabilities
 - 📋 **Method Discovery**: Enumerate supported RPC methods
 - 🎨 **Modern CLI**: Clean Click-based command-line interface with progress bars and colored output
@@ -73,6 +76,12 @@ erf fingerprint http://localhost:8545
 # Multiple endpoints with async processing
 erf fingerprint -a http://localhost:8545 https://eth.llamarpc.com
 
+# From file (one URL per line) - great for pentesting
+erf fingerprint -f endpoints.txt
+
+# From file with async processing
+erf fingerprint -f endpoints.txt -a --max-concurrent 10
+
 # Export results to JSON
 erf fingerprint -o results.json http://localhost:8545
 
@@ -118,7 +127,7 @@ erf fingerprint --help
 # Comprehensive analysis with all options
 erf fingerprint \
   --verbose \
-  --async-mode \
+  --async \
   --timeout 30 \
   --max-concurrent 5 \
   --format json \
@@ -277,6 +286,23 @@ This tool is designed for:
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
+
+### Publishing
+
+For maintainers, use the automated publish script to release new versions:
+
+```bash
+# Test with dry run first
+./publish.sh --dry-run
+
+# Publish patch version to Test PyPI
+./publish.sh patch --test
+
+# Publish to production PyPI
+./publish.sh patch
+```
+
+See [PUBLISHING.md](PUBLISHING.md) for detailed publishing instructions.
 
 ## License
 

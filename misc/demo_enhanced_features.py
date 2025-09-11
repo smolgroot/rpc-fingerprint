@@ -158,7 +158,7 @@ def main():
     print("python ethereum_rpc_fingerprinter.py http://localhost:8545")
     print()
     print("# Multiple endpoints (async)")
-    print("python ethereum_rpc_fingerprinter.py --async-mode \\")
+    print("python ethereum_rpc_fingerprinter.py --async \\")
     print("    http://localhost:8545 \\")
     print("    https://eth.llamarpc.com \\")
     print("    https://rpc.ankr.com/eth")

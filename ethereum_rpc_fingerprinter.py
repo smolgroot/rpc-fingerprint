@@ -12,16 +12,28 @@ import asyncio
 import aiohttp
 import requests
 import click
+import sys
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, asdict
+from tqdm.asyncio import tqdm as atqdm
+from tqdm import tqdm
 from web3 import Web3
 from web3.exceptions import Web3Exception
-import sys
 from colorama import Fore, Style, init
 from tabulate import tabulate
+from rich.console import Console
+from rich.table import Table
+from rich.progress import Progress, TaskID, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TimeElapsedColumn
+from rich.panel import Panel
+from rich.text import Text
+from rich.live import Live
+from rich import box
 
 # Initialize colorama for cross-platform colored output
 init()
+
+# Initialize Rich console
+console = Console()
 
 @dataclass
 class FingerprintResult:
@@ -553,27 +565,92 @@ class AsyncEthereumRPCFingerprinter:
         self.max_concurrent = max_concurrent
         self.semaphore = asyncio.Semaphore(max_concurrent)
     
-    async def fingerprint_multiple(self, endpoints: List[str]) -> List[FingerprintResult]:
+    async def fingerprint_multiple(self, endpoints: List[str], show_progress: bool = True) -> List[FingerprintResult]:
         """
-        Fingerprint multiple endpoints concurrently
+        Fingerprint multiple endpoints concurrently with progress tracking
+        
+        Args:
+            endpoints: List of endpoint URLs to fingerprint
+            show_progress: Whether to show progress bar
         """
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-            tasks = [self._fingerprint_single(session, endpoint) for endpoint in endpoints]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Handle exceptions
-            final_results = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    error_result = FingerprintResult(
-                        endpoint=endpoints[i],
-                        errors=[f"Async fingerprint failed: {result}"]
-                    )
-                    final_results.append(error_result)
-                else:
-                    final_results.append(result)
+            if show_progress:
+                # Use Rich progress bar for beautiful async progress tracking
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    TextColumn("[bold blue]{task.completed}/{task.total}"),
+                    TimeElapsedColumn(),
+                    TextColumn("•"),
+                    TimeRemainingColumn(),
+                    console=console,
+                    transient=False
+                ) as progress:
                     
-            return final_results
+                    task = progress.add_task("🔍 Fingerprinting endpoints...", total=len(endpoints))
+                    
+                    tasks = [self._fingerprint_single(session, endpoint) for endpoint in endpoints]
+                    results = []
+                    
+                    # Process tasks as they complete and update progress
+                    for coro in asyncio.as_completed(tasks):
+                        try:
+                            result = await coro
+                            results.append(result)
+                        except Exception as e:
+                            # Create error result for failed endpoint
+                            error_result = FingerprintResult(
+                                endpoint="unknown",  # We'll fix this in post-processing
+                                errors=[f"Async fingerprint failed: {e}"]
+                            )
+                            results.append(error_result)
+                        
+                        progress.advance(task)
+                    
+                    # Sort results to match original endpoint order
+                    endpoint_to_result = {r.endpoint: r for r in results if r.endpoint != "unknown"}
+                    ordered_results = []
+                    error_count = 0
+                    
+                    for endpoint in endpoints:
+                        if endpoint in endpoint_to_result:
+                            ordered_results.append(endpoint_to_result[endpoint])
+                        else:
+                            # Handle unknown errors by assigning them to missing endpoints
+                            error_results = [r for r in results if r.endpoint == "unknown"]
+                            if error_count < len(error_results):
+                                error_result = error_results[error_count]
+                                error_result.endpoint = endpoint
+                                ordered_results.append(error_result)
+                                error_count += 1
+                            else:
+                                # Fallback error result
+                                ordered_results.append(FingerprintResult(
+                                    endpoint=endpoint,
+                                    errors=["Unknown error during fingerprinting"]
+                                ))
+                    
+                    return ordered_results
+            else:
+                # Original behavior without progress tracking for quiet mode
+                tasks = [self._fingerprint_single(session, endpoint) for endpoint in endpoints]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Handle exceptions
+                final_results = []
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        error_result = FingerprintResult(
+                            endpoint=endpoints[i],
+                            errors=[f"Async fingerprint failed: {result}"]
+                        )
+                        final_results.append(error_result)
+                    else:
+                        final_results.append(result)
+                        
+                return final_results
     
     async def _fingerprint_single(self, session: aiohttp.ClientSession, endpoint: str) -> FingerprintResult:
         """
@@ -661,68 +738,295 @@ class AsyncEthereumRPCFingerprinter:
             except Exception as e:
                 result.errors.append(f"Failed to get {method}: {e}")
 
+    def _extract_node_implementation(self, client_version: str) -> Optional[str]:
+        """Extract node implementation from client version string"""
+        if not client_version:
+            return None
+            
+        client_lower = client_version.lower()
+        
+        if 'geth' in client_lower or 'turbogeth' in client_lower:
+            return 'Geth'
+        elif 'parity' in client_lower or 'openethereum' in client_lower:
+            return 'Parity/OpenEthereum'
+        elif 'besu' in client_lower:
+            return 'Besu'
+        elif 'nethermind' in client_lower:
+            return 'Nethermind'
+        elif 'erigon' in client_lower:
+            return 'Erigon'
+        elif 'anvil' in client_lower:
+            return 'Anvil'
+        elif 'hardhat' in client_lower:
+            return 'Hardhat'
+        elif 'ganache' in client_lower:
+            return 'Ganache'
+        else:
+            return 'Unknown'
+    
+    def _parse_client_version(self, client_version: str) -> Dict[str, Optional[str]]:
+        """
+        Parse client version string to extract detailed information
+        """
+        
+        result = {
+            'node_version': None,
+            'programming_language': None,
+            'language_version': None,
+            'operating_system': None,
+            'architecture': None,
+            'build_info': None
+        }
+        
+        if not client_version:
+            return result
+        
+        # Normalize the version string
+        version_str = client_version.strip()
+        
+        # Extract the main implementation name and version
+        if '/' in version_str:
+            parts = version_str.split('/')
+            
+            # First part usually contains implementation and version
+            impl_part = parts[0]
+            
+            # Extract version number (look for patterns like v1.2.3, 1.2.3, etc.)
+            import re
+            version_match = re.search(r'v?(\d+\.\d+\.\d+(?:[.-]\w+)*)', impl_part)
+            if version_match:
+                result['node_version'] = version_match.group(1)
+            
+            # Process subsequent parts for platform info
+            for i, part in enumerate(parts[1:], 1):
+                part_lower = part.lower()
+                
+                # Operating System detection
+                if any(os_name in part_lower for os_name in ['linux', 'windows', 'darwin', 'macos', 'freebsd', 'openbsd']):
+                    if 'linux' in part_lower:
+                        result['operating_system'] = 'Linux'
+                    elif 'windows' in part_lower:
+                        result['operating_system'] = 'Windows'
+                    elif 'darwin' in part_lower or 'macos' in part_lower:
+                        result['operating_system'] = 'macOS'
+                    elif 'freebsd' in part_lower:
+                        result['operating_system'] = 'FreeBSD'
+                    elif 'openbsd' in part_lower:
+                        result['operating_system'] = 'OpenBSD'
+                
+                # Architecture detection
+                elif any(arch in part_lower for arch in ['amd64', 'x86_64', 'arm64', 'arm', 'x64', 'x86']):
+                    if 'amd64' in part_lower or 'x86_64' in part_lower:
+                        result['architecture'] = 'amd64'
+                    elif 'x64' in part_lower:
+                        result['architecture'] = 'x64'
+                    elif 'arm64' in part_lower:
+                        result['architecture'] = 'arm64'
+                    elif 'arm' in part_lower:
+                        result['architecture'] = 'ARM'
+                    elif 'x86' in part_lower:
+                        result['architecture'] = 'x86'
+                
+                # Programming language and version detection
+                elif 'go' in part_lower:
+                    result['programming_language'] = 'Go'
+                    # Extract Go version (e.g., go1.21.4)
+                    go_match = re.search(r'go(\d+\.\d+(?:\.\d+)?)', part_lower)
+                    if go_match:
+                        result['language_version'] = go_match.group(1)
+                
+                elif 'java' in part_lower or 'openjdk' in part_lower:
+                    result['programming_language'] = 'Java'
+                    # Extract Java version (e.g., java-17, openjdk-java-17)
+                    java_match = re.search(r'java[-]?(\d+)', part_lower)
+                    if java_match:
+                        result['language_version'] = java_match.group(1)
+                
+                elif 'dotnet' in part_lower or '.net' in part_lower:
+                    result['programming_language'] = '.NET'
+                    # Extract .NET version (e.g., dotnet8.0.0)
+                    dotnet_match = re.search(r'dotnet(\d+\.\d+(?:\.\d+)?)', part_lower)
+                    if dotnet_match:
+                        result['language_version'] = dotnet_match.group(1)
+                
+                elif 'rust' in part_lower:
+                    result['programming_language'] = 'Rust'
+                    # Extract Rust version if present
+                    rust_match = re.search(r'rust[-]?(\d+\.\d+(?:\.\d+)?)', part_lower)
+                    if rust_match:
+                        result['language_version'] = rust_match.group(1)
+                
+                # Build info (commit hashes, timestamps, etc.)
+                elif re.match(r'^[a-f0-9]{7,}', part) or '+' in part:
+                    result['build_info'] = part
+        
+        # Special handling for specific implementations
+        impl_lower = client_version.lower()
+        
+        # Hardhat detection
+        if 'hardhat' in impl_lower:
+            result['programming_language'] = 'JavaScript/TypeScript'
+            if 'node.js' in impl_lower:
+                result['language_version'] = 'Node.js'
+        
+        # Ganache detection
+        elif 'ganache' in impl_lower:
+            result['programming_language'] = 'JavaScript'
+        
+        # Anvil detection (Foundry)
+        elif 'anvil' in impl_lower:
+            result['programming_language'] = 'Rust'
+        
+        # Erigon (Go-based)
+        elif 'erigon' in impl_lower or 'turbogeth' in impl_lower:
+            if not result['programming_language']:
+                result['programming_language'] = 'Go'
+        
+        # Geth (Go-based)
+        elif 'geth' in impl_lower:
+            if not result['programming_language']:
+                result['programming_language'] = 'Go'
+        
+        # Besu (Java-based)
+        elif 'besu' in impl_lower:
+            if not result['programming_language']:
+                result['programming_language'] = 'Java'
+        
+        # Nethermind (.NET-based)
+        elif 'nethermind' in impl_lower:
+            if not result['programming_language']:
+                result['programming_language'] = '.NET'
+        
+        # Parity/OpenEthereum (Rust-based)
+        elif 'parity' in impl_lower or 'openethereum' in impl_lower:
+            if not result['programming_language']:
+                result['programming_language'] = 'Rust'
+        
+        return result
+
+
 def print_fingerprint_result(result: FingerprintResult):
-    """Print fingerprint result in a formatted way"""
-    print(f"\n{Fore.CYAN}{'='*80}{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}Endpoint: {Style.RESET_ALL}{result.endpoint}")
-    print(f"{Fore.CYAN}{'='*80}{Style.RESET_ALL}")
+    """Print fingerprint result using Rich formatting"""
     
+    # Create a panel for the endpoint
+    endpoint_text = Text(result.endpoint, style="bold yellow")
+    panel = Panel(endpoint_text, title="🔍 RPC Endpoint", border_style="cyan", box=box.ROUNDED)
+    console.print(panel)
+    
+    # Show errors if any
     if result.errors:
-        print(f"\n{Fore.RED}Errors:{Style.RESET_ALL}")
+        error_table = Table(title="❌ Errors", show_header=False, box=box.SIMPLE)
+        error_table.add_column("Error", style="red")
         for error in result.errors:
-            print(f"  • {error}")
+            error_table.add_row(f"• {error}")
+        console.print(error_table)
     
-    # Basic Information
+    # Basic Information Table
+    basic_table = Table(title="📊 Basic Information", box=box.ROUNDED)
+    basic_table.add_column("Property", style="cyan", no_wrap=True)
+    basic_table.add_column("Value", style="white")
+    
     basic_info = [
-        ["Client Version", result.client_version],
-        ["Node Implementation", result.node_implementation],
-        ["Node Version", result.node_version],
-        ["Programming Language", result.programming_language],
-        ["Language Version", result.language_version],
-        ["Operating System", result.operating_system],
-        ["Architecture", result.architecture],
-        ["Network ID", result.network_id],
-        ["Chain ID", result.chain_id],
-        ["Protocol Version", result.protocol_version],
-        ["Response Time", f"{result.response_time:.3f}s" if result.response_time else None]
+        ("Client Version", result.client_version),
+        ("Node Implementation", result.node_implementation),
+        ("Node Version", result.node_version),
+        ("Programming Language", result.programming_language),
+        ("Language Version", result.language_version),
+        ("Operating System", result.operating_system),
+        ("Architecture", result.architecture),
+        ("Network ID", result.network_id),
+        ("Chain ID", result.chain_id),
+        ("Protocol Version", result.protocol_version),
+        ("Response Time", f"{result.response_time:.3f}s" if result.response_time else None)
     ]
     
-    print(f"\n{Fore.GREEN}Basic Information:{Style.RESET_ALL}")
-    print(tabulate([row for row in basic_info if row[1] is not None], 
-                  headers=["Property", "Value"], tablefmt="grid"))
+    for prop, value in basic_info:
+        if value is not None:
+            # Style certain values
+            if prop == "Node Implementation" and value != "Unknown":
+                value = f"[bold green]{value}[/bold green]"
+            elif prop == "Response Time":
+                # Color code response times
+                time_val = float(value.replace('s', ''))
+                if time_val < 0.1:
+                    value = f"[bold green]{value}[/bold green]"
+                elif time_val < 0.5:
+                    value = f"[yellow]{value}[/yellow]"
+                else:
+                    value = f"[red]{value}[/red]"
+            
+            basic_table.add_row(prop, str(value))
+    
+    if basic_table.row_count > 0:
+        console.print(basic_table)
     
     # Build Information (if available)
     if result.build_info and any(result.build_info.values()):
-        print(f"\n{Fore.GREEN}Build Information:{Style.RESET_ALL}")
-        build_table = [[key.replace('_', ' ').title(), value] for key, value in result.build_info.items() if value]
-        if build_table:
-            print(tabulate(build_table, headers=["Property", "Value"], tablefmt="grid"))
+        build_table = Table(title="🔧 Build Information", box=box.ROUNDED)
+        build_table.add_column("Property", style="cyan", no_wrap=True)
+        build_table.add_column("Value", style="white")
+        
+        for key, value in result.build_info.items():
+            if value:
+                build_table.add_row(key.replace('_', ' ').title(), str(value))
+        
+        if build_table.row_count > 0:
+            console.print(build_table)
     
-    # Network Status
+    # Network Status Table
+    network_table = Table(title="🌐 Network Status", box=box.ROUNDED)
+    network_table.add_column("Property", style="cyan", no_wrap=True)
+    network_table.add_column("Value", style="white")
+    
     network_info = [
-        ["Block Number", result.block_number],
-        ["Gas Price", f"{result.gas_price} wei" if result.gas_price else None],
-        ["Peer Count", result.peer_count],
-        ["Syncing", result.syncing],
-        ["Mining", result.mining],
-        ["Hashrate", result.hashrate]
+        ("Block Number", result.block_number),
+        ("Gas Price", f"{result.gas_price} wei" if result.gas_price else None),
+        ("Peer Count", result.peer_count),
+        ("Syncing", result.syncing),
+        ("Mining", result.mining),
+        ("Hashrate", result.hashrate)
     ]
     
-    print(f"\n{Fore.GREEN}Network Status:{Style.RESET_ALL}")
-    print(tabulate([row for row in network_info if row[1] is not None], 
-                  headers=["Property", "Value"], tablefmt="grid"))
+    for prop, value in network_info:
+        if value is not None:
+            # Style certain values
+            if prop == "Syncing":
+                value = f"[red]{value}[/red]" if value else f"[green]{value}[/green]"
+            elif prop == "Mining":
+                value = f"[yellow]{value}[/yellow]" if value else f"[dim]{value}[/dim]"
+            elif prop == "Peer Count" and isinstance(value, int):
+                if value == 0:
+                    value = f"[red]{value}[/red]"
+                elif value < 5:
+                    value = f"[yellow]{value}[/yellow]"
+                else:
+                    value = f"[green]{value}[/green]"
+            
+            network_table.add_row(prop, str(value))
+    
+    if network_table.row_count > 0:
+        console.print(network_table)
     
     # Accounts
     if result.accounts:
-        print(f"\n{Fore.GREEN}Accounts ({len(result.accounts)}):{Style.RESET_ALL}")
-        for i, account in enumerate(result.accounts[:5]):  # Show first 5
-            print(f"  {i+1:2d}. {account}")
-        if len(result.accounts) > 5:
-            print(f"  ... and {len(result.accounts) - 5} more")
+        accounts_table = Table(title=f"👤 Accounts ({len(result.accounts)})", box=box.ROUNDED)
+        accounts_table.add_column("#", style="dim", width=3)
+        accounts_table.add_column("Address", style="yellow")
+        
+        for i, account in enumerate(result.accounts[:10]):  # Show first 10
+            accounts_table.add_row(str(i+1), account)
+        
+        if len(result.accounts) > 10:
+            accounts_table.add_row("...", f"and {len(result.accounts) - 10} more")
+        
+        console.print(accounts_table)
     
     # Supported Methods
     if result.supported_methods:
-        print(f"\n{Fore.GREEN}Supported Methods ({len(result.supported_methods)}):{Style.RESET_ALL}")
+        methods_table = Table(title=f"⚙️ Supported Methods ({len(result.supported_methods)})", box=box.ROUNDED)
+        methods_table.add_column("Namespace", style="cyan", no_wrap=True)
+        methods_table.add_column("Methods", style="white")
+        
         # Group methods by namespace
         namespaces = {}
         for method in result.supported_methods:
@@ -731,17 +1035,25 @@ def print_fingerprint_result(result: FingerprintResult):
                 namespaces[namespace] = []
             namespaces[namespace].append(method)
         
-        for namespace, methods in namespaces.items():
-            print(f"  {Fore.BLUE}{namespace}:{Style.RESET_ALL} {', '.join([m.split('_', 1)[1] for m in methods])}")
+        for namespace, methods in sorted(namespaces.items()):
+            method_names = [m.split('_', 1)[1] if '_' in m else m for m in methods]
+            methods_table.add_row(namespace, ", ".join(method_names))
+        
+        console.print(methods_table)
     
     # Additional Information
     if result.additional_info:
-        print(f"\n{Fore.GREEN}Additional Information:{Style.RESET_ALL}")
+        additional_table = Table(title="ℹ️ Additional Information", box=box.ROUNDED)
+        additional_table.add_column("Property", style="cyan", no_wrap=True)
+        additional_table.add_column("Value", style="white")
+        
         for key, value in result.additional_info.items():
-            if isinstance(value, dict):
-                print(f"  {key}: {json.dumps(value, indent=2)}")
-            else:
-                print(f"  {key}: {value}")
+            additional_table.add_row(key.replace('_', ' ').title(), str(value))
+        
+        console.print(additional_table)
+    
+    # Add some spacing
+    console.print()
 
 
 def _save_results(results: List[FingerprintResult], output_path: str, format_type: str, verbose: bool = False):
@@ -798,7 +1110,7 @@ def parse_version(client_versions):
     CLIENT_VERSIONS: One or more client version strings to parse
     
     Example:
-    ethereum-rpc-fingerprinter parse-version "Geth/v1.13.5-stable/linux-amd64/go1.21.4"
+    erf parse-version "Geth/v1.13.5-stable/linux-amd64/go1.21.4"
     """
     fingerprinter = EthereumRPCFingerprinter()
     
@@ -858,58 +1170,118 @@ def list_implementations(include_dev):
 
 # Add the main command to the CLI group as the default
 @cli.command(name='fingerprint')
-@click.argument('endpoints', nargs=-1, required=True)
+@click.argument('endpoints', nargs=-1, required=False)
+@click.option('--file', '-f', 'endpoints_file', type=click.Path(exists=True, readable=True), 
+              help='File containing URLs (one per line) to fingerprint')
 @click.option('--timeout', '-t', default=10, help='Request timeout in seconds', show_default=True)
-@click.option('--async-mode', '-a', is_flag=True, help='Use async fingerprinting for multiple endpoints')
+@click.option('--async', '-a', 'async_mode', is_flag=True, help='Use async fingerprinting for multiple endpoints')
 @click.option('--output', '-o', type=click.Path(), help='Output file for JSON results')
 @click.option('--quiet', '-q', is_flag=True, help='Only output JSON, no formatted display')
 @click.option('--format', 'output_format', type=click.Choice(['table', 'json', 'yaml']), 
               default='table', help='Output format', show_default=True)
 @click.option('--max-concurrent', default=10, help='Maximum concurrent requests for async mode', show_default=True)
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def fingerprint_command(endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose):
+def fingerprint_command(endpoints, endpoints_file, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose):
     """
     Fingerprint Ethereum RPC endpoints.
     
-    ENDPOINTS: One or more RPC endpoint URLs to fingerprint
+    ENDPOINTS: One or more RPC endpoint URLs to fingerprint (optional if --file is used)
     
     Examples:
     
     \b
     # Single endpoint
-    ethereum-rpc-fingerprinter fingerprint http://localhost:8545
+    erf fingerprint http://localhost:8545
     
     \b
     # Multiple endpoints with async mode
-    ethereum-rpc-fingerprinter fingerprint -a http://localhost:8545 https://eth.llamarpc.com
+    erf fingerprint -a http://localhost:8545 https://eth.llamarpc.com
+    
+    \b
+    # From file with URLs (one per line)
+    erf fingerprint -f endpoints.txt
+    
+    \b
+    # From file with async mode
+    erf fingerprint -f endpoints.txt -a
     
     \b
     # Export to JSON
-    ethereum-rpc-fingerprinter fingerprint -o results.json http://localhost:8545
+    erf fingerprint -o results.json http://localhost:8545
+    
+    \b
+    # Combine file and direct URLs
+    erf fingerprint -f endpoints.txt http://localhost:8545 https://eth.llamarpc.com
     """
-    return main(endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose)
+    # Validate input: either endpoints or file must be provided
+    if not endpoints and not endpoints_file:
+        raise click.UsageError("Either provide endpoint URLs or use --file option")
+    
+    # Collect all endpoints
+    all_endpoints = list(endpoints) if endpoints else []
+    
+    # Read endpoints from file if provided
+    if endpoints_file:
+        if verbose:
+            click.echo(f"📁 Reading endpoints from file: {endpoints_file}")
+        
+        try:
+            with open(endpoints_file, 'r', encoding='utf-8') as f:
+                file_endpoints = []
+                line_num = 0
+                for line in f:
+                    line_num += 1
+                    line = line.strip()
+                    
+                    # Skip empty lines and comments
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    # Basic URL validation
+                    if not (line.startswith('http://') or line.startswith('https://') or line.startswith('wss://') or line.startswith('ws://')):
+                        if verbose:
+                            click.echo(f"⚠️  Skipping invalid URL on line {line_num}: {line}", err=True)
+                        continue
+                    
+                    file_endpoints.append(line)
+                
+                all_endpoints.extend(file_endpoints)
+                
+                if verbose:
+                    click.echo(f"📄 Loaded {len(file_endpoints)} endpoints from file")
+        
+        except Exception as e:
+            raise click.ClickException(f"Error reading file {endpoints_file}: {str(e)}")
+    
+    if not all_endpoints:
+        raise click.ClickException("No valid endpoints found")
+    
+    if verbose:
+        click.echo(f"🎯 Total endpoints to fingerprint: {len(all_endpoints)}")
+    
+    return main(all_endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose)
 
 
 def main(endpoints, timeout, async_mode, output, quiet, output_format, max_concurrent, verbose):
     """Core fingerprinting logic"""
     if verbose:
-        click.echo(f"🔍 Starting fingerprinting of {len(endpoints)} endpoint(s)...")
-        click.echo(f"⚙️  Configuration: timeout={timeout}s, async={async_mode}, format={output_format}")
+        console.print("🔍 Starting fingerprinting of [bold cyan]{}[/bold cyan] endpoint(s)...".format(len(endpoints)))
+        console.print("⚙️  Configuration: timeout=[yellow]{}s[/yellow], async=[cyan]{}[/cyan], format=[green]{}[/green]".format(timeout, async_mode, output_format))
     
     try:
         # Choose fingerprinting method
         if async_mode and len(endpoints) > 1:
             if verbose:
-                click.echo("🚀 Using async fingerprinting mode")
+                console.print("🚀 Using [bold green]async fingerprinting mode[/bold green]")
             
             async def run_async():
                 fingerprinter = AsyncEthereumRPCFingerprinter(timeout=timeout, max_concurrent=max_concurrent)
-                return await fingerprinter.fingerprint_multiple(list(endpoints))
+                return await fingerprinter.fingerprint_multiple(list(endpoints), show_progress=not quiet)
             
             results = asyncio.run(run_async())
         else:
             if verbose:
-                click.echo("🔄 Using synchronous fingerprinting mode")
+                console.print("🔄 Using [bold blue]synchronous fingerprinting mode[/bold blue]")
             
             fingerprinter = EthereumRPCFingerprinter(timeout=timeout)
             results = []
@@ -950,7 +1322,7 @@ if __name__ == "__main__":
     @click.command()
     @click.argument('endpoints', nargs=-1, required=True)
     @click.option('--timeout', '-t', default=10, help='Request timeout in seconds', show_default=True)
-    @click.option('--async-mode', '-a', is_flag=True, help='Use async fingerprinting for multiple endpoints')
+    @click.option('--async', '-a', 'async_mode', is_flag=True, help='Use async fingerprinting for multiple endpoints')
     @click.option('--output', '-o', type=click.Path(), help='Output file for JSON results')
     @click.option('--quiet', '-q', is_flag=True, help='Only output JSON, no formatted display')
     @click.option('--format', 'output_format', type=click.Choice(['table', 'json', 'yaml']), 

@@ -21,12 +21,12 @@ def read_requirements():
 setup(
     name="ethereum-rpc-fingerprinter",
     version="1.0.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="smolgroot",
+    author_email="smolgroot@example.com",
     description="A comprehensive tool for fingerprinting Ethereum RPC endpoints",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/ethereum-rpc-fingerprinter",
+    url="https://github.com/smolgroot/ethereum-rpc-fingerprinter",
     packages=find_packages(),
     py_modules=["ethereum_rpc_fingerprinter"],
     classifiers=[
@@ -60,9 +60,9 @@ setup(
         "geth", "besu", "nethermind", "erigon", "security", "analysis"
     ],
     project_urls={
-        "Bug Reports": "https://github.com/yourusername/ethereum-rpc-fingerprinter/issues",
-        "Source": "https://github.com/yourusername/ethereum-rpc-fingerprinter",
-        "Documentation": "https://github.com/yourusername/ethereum-rpc-fingerprinter#readme",
+        "Bug Reports": "https://github.com/smolgroot/ethereum-rpc-fingerprinter/issues",
+        "Source": "https://github.com/smolgroot/ethereum-rpc-fingerprinter",
+        "Documentation": "https://github.com/smolgroot/ethereum-rpc-fingerprinter#readme",
     },
     include_package_data=True,
     zip_safe=False,
