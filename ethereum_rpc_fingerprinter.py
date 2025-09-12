@@ -172,7 +172,7 @@ class EthereumRPCFingerprinter:
     
     def _extract_node_implementation(self, client_version: str) -> Optional[str]:
         """Extract node implementation from client version string"""
-        if not client_version:
+        if not client_version or not client_version.strip():
             return None
             
         client_lower = client_version.lower()
@@ -189,13 +189,13 @@ class EthereumRPCFingerprinter:
             return 'Erigon'
         elif 'reth' in client_lower:
             return 'Reth'
+        elif 'hardhat' in client_lower:
+            return 'Hardhat'
         elif 'ethereumjs' in client_lower:
             return 'EthereumJS'
         elif 'anvil' in client_lower:
             return 'Anvil'
-        elif 'hardhat' in client_lower:
-            return 'Hardhat'
-        elif 'ganache' in client_lower:
+        elif 'ganache' in client_lower or 'testrpc' in client_lower:
             return 'Ganache'
         else:
             return 'Unknown'
@@ -744,7 +744,7 @@ class AsyncEthereumRPCFingerprinter:
 
     def _extract_node_implementation(self, client_version: str) -> Optional[str]:
         """Extract node implementation from client version string"""
-        if not client_version:
+        if not client_version or not client_version.strip():
             return None
             
         client_lower = client_version.lower()
@@ -761,13 +761,13 @@ class AsyncEthereumRPCFingerprinter:
             return 'Erigon'
         elif 'reth' in client_lower:
             return 'Reth'
+        elif 'hardhat' in client_lower:
+            return 'Hardhat'
         elif 'ethereumjs' in client_lower:
             return 'EthereumJS'
         elif 'anvil' in client_lower:
             return 'Anvil'
-        elif 'hardhat' in client_lower:
-            return 'Hardhat'
-        elif 'ganache' in client_lower:
+        elif 'ganache' in client_lower or 'testrpc' in client_lower:
             return 'Ganache'
         else:
             return 'Unknown'
@@ -1310,10 +1310,23 @@ def main(endpoints, timeout, async_mode, output, quiet, output_format, max_concu
             results = []
             
             if len(endpoints) > 1 and not quiet:
-                with click.progressbar(endpoints, label='Fingerprinting endpoints') as bar:
-                    for endpoint in bar:
+                # Use Rich progress bar for beautiful synchronous progress tracking
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    TimeElapsedColumn(),
+                    TimeRemainingColumn(),
+                    console=console,
+                    refresh_per_second=10,
+                ) as progress:
+                    task = progress.add_task("🔍 Fingerprinting endpoints...", total=len(endpoints))
+                    
+                    for endpoint in endpoints:
                         result = fingerprinter.fingerprint(endpoint)
                         results.append(result)
+                        progress.advance(task)
             else:
                 for endpoint in endpoints:
                     result = fingerprinter.fingerprint(endpoint)
