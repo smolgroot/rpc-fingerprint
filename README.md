@@ -6,6 +6,8 @@ A comprehensive Python tool for fingerprinting Ethereum/EVM chains RPC endpoints
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[![asciicast](https://asciinema.org/a/740150.svg)](https://asciinema.org/a/740150)
+
 ## Features
 
 - 🔍 **Enhanced Node Detection**: Identify Geth, Parity/OpenEthereum, Besu, Nethermind, Erigon, Reth, EthereumJS, Anvil, Hardhat, Ganache, TurboGeth
@@ -13,11 +15,8 @@ A comprehensive Python tool for fingerprinting Ethereum/EVM chains RPC endpoints
 - 📊 **Network Information**: Chain ID, network ID, block height, gas prices, peer count
 - 🚀 **Async Support**: Fingerprint multiple endpoints concurrently with configurable limits
 - 📁 **Bulk Scanning**: Read endpoint lists from files (one URL per line) - perfect for pentesting workflows
-- ✨ **Rich Interface**: Beautiful progress bars with real-time completion tracking, ETA, and throughput metrics
-- 🎨 **Modern Tables**: Professional rounded tables with color-coded values and emoji icons
 - 🔐 **Security Analysis**: Detect exposed accounts, admin interfaces, debug capabilities
 - 📋 **Method Discovery**: Enumerate supported RPC methods
-- 🖥️ **Enhanced CLI**: Click-based interface with verbose output, progress tracking, and intuitive commands
 - 📄 **Multiple Formats**: Output results in table, JSON, or YAML format
 - 🐍 **Python API**: Use as a library in your Python projects
 
