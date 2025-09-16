@@ -19,6 +19,7 @@ A comprehensive Python tool for fingerprinting Ethereum/EVM chains RPC endpoints
 - [Python API Usage](#python-api-usage)
 - [Example Output](#example-output)
 - [Supported Implementations](#supported-implementations)
+- [CVE Vulnerability Detection](#cve-vulnerability-detection-🛡️)
 - [CLI Documentation](#cli-documentation)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
@@ -371,7 +372,7 @@ The CVE database is automatically loaded and maintained:
 
 ## CLI Documentation
 
-For comprehensive CLI usage, see [CLI_USAGE.md](CLI_USAGE.md).
+For comprehensive CLI usage, see [CLI_USAGE.md](docs/CLI_USAGE.md).
 
 ## Security Considerations
 
