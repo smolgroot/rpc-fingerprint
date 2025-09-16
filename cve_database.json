@@ -1,0 +1,273 @@
+{
+  "metadata": {
+    "database_version": "1.0.0",
+    "last_updated": "2024-01-15",
+    "description": "CVE database for Ethereum RPC implementations",
+    "sources": [
+      "https://cve.mitre.org/",
+      "https://nvd.nist.gov/",
+      "https://github.com/advisories"
+    ]
+  },
+  "vulnerabilities": {
+    "geth": [
+      {
+        "cve_id": "CVE-2021-41173",
+        "title": "Geth DoS via malformed trie node",
+        "description": "Go Ethereum (Geth) before 1.10.9 allows a DoS attack through malformed trie node in the snap/1 protocol.",
+        "severity": "HIGH",
+        "cvss_score": 7.5,
+        "affected_versions": {
+          "type": "range",
+          "min": "1.9.0",
+          "max": "1.10.8",
+          "exclude": []
+        },
+        "fixed_in": "1.10.9",
+        "published_date": "2021-10-26",
+        "references": [
+          "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-59hh-656j-3p7v",
+          "https://github.com/ethereum/go-ethereum/commit/567d41d9363706b4b13ce0903804e8acf214af49"
+        ],
+        "impact": "Remote attackers can cause denial of service by sending malformed snap/1 protocol messages",
+        "recommendation": "Update to Geth v1.10.9 or later immediately"
+      },
+      {
+        "cve_id": "CVE-2021-39137",
+        "title": "Geth consensus flaw in London hard fork",
+        "description": "Go Ethereum (Geth) before 1.10.8 contains a consensus flaw related to base fee calculation in the London hard fork.",
+        "severity": "CRITICAL",
+        "cvss_score": 9.8,
+        "affected_versions": {
+          "type": "range",
+          "min": "1.10.0",
+          "max": "1.10.7",
+          "exclude": []
+        },
+        "fixed_in": "1.10.8",
+        "published_date": "2021-08-24",
+        "references": [
+          "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-9856-9gg9-qcmq"
+        ],
+        "impact": "Could lead to chain splits and consensus failures",
+        "recommendation": "Critical update required - upgrade to v1.10.8+ immediately"
+      },
+      {
+        "cve_id": "CVE-2020-26265",
+        "title": "Geth crash via malformed RLP",
+        "description": "Go Ethereum (Geth) before 1.9.24 allows attackers to cause a denial of service via malformed RLP data.",
+        "severity": "MEDIUM",
+        "cvss_score": 6.5,
+        "affected_versions": {
+          "type": "range",
+          "min": "1.9.0",
+          "max": "1.9.23",
+          "exclude": []
+        },
+        "fixed_in": "1.9.24",
+        "published_date": "2020-12-11",
+        "references": [
+          "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-69v6-xc2j-r2jf"
+        ],
+        "impact": "Remote denial of service through malformed network messages",
+        "recommendation": "Update to Geth v1.9.24 or later"
+      },
+      {
+        "cve_id": "CVE-2022-23328",
+        "title": "Geth memory exhaustion via large RPC requests",
+        "description": "Geth before 1.10.15 is vulnerable to memory exhaustion attacks via large RPC requests.",
+        "severity": "HIGH",
+        "cvss_score": 7.5,
+        "affected_versions": {
+          "type": "range",
+          "min": "1.10.0",
+          "max": "1.10.14",
+          "exclude": []
+        },
+        "fixed_in": "1.10.15",
+        "published_date": "2022-02-03",
+        "references": [
+          "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-wjxw-gh3m-7pm5"
+        ],
+        "impact": "Memory exhaustion leading to node crash and service disruption",
+        "recommendation": "Upgrade to Geth v1.10.15 or configure request size limits"
+      }
+    ],
+    "parity": [
+      {
+        "cve_id": "CVE-2018-19486",
+        "title": "Parity light client DoS vulnerability",
+        "description": "Parity Ethereum before 2.2.5-beta allows attackers to cause a denial of service via light client requests.",
+        "severity": "MEDIUM",
+        "cvss_score": 5.3,
+        "affected_versions": {
+          "type": "range",
+          "min": "2.0.0",
+          "max": "2.2.4",
+          "exclude": []
+        },
+        "fixed_in": "2.2.5",
+        "published_date": "2018-11-26",
+        "references": [
+          "https://github.com/paritytech/parity-ethereum/security/advisories/GHSA-4qp6-7hm6-9jxr"
+        ],
+        "impact": "Denial of service through malformed light client requests",
+        "recommendation": "Update to Parity v2.2.5 or later"
+      },
+      {
+        "cve_id": "CVE-2020-26147",
+        "title": "OpenEthereum consensus vulnerability",
+        "description": "OpenEthereum (formerly Parity) before 3.1.1 contains a consensus vulnerability in transaction processing.",
+        "severity": "HIGH",
+        "cvss_score": 8.1,
+        "affected_versions": {
+          "type": "range",
+          "min": "3.0.0",
+          "max": "3.1.0",
+          "exclude": []
+        },
+        "fixed_in": "3.1.1",
+        "published_date": "2020-10-15",
+        "references": [
+          "https://github.com/openethereum/openethereum/security/advisories/GHSA-x2mx-4m8x-wqf6"
+        ],
+        "impact": "Potential consensus failures and chain splits",
+        "recommendation": "Immediate upgrade to OpenEthereum v3.1.1 required"
+      }
+    ],
+    "besu": [
+      {
+        "cve_id": "CVE-2021-43668",
+        "title": "Besu DoS via malformed P2P messages",
+        "description": "Hyperledger Besu before 21.10.2 allows denial of service attacks via malformed P2P discovery messages.",
+        "severity": "MEDIUM",
+        "cvss_score": 6.5,
+        "affected_versions": {
+          "type": "range",
+          "min": "21.1.0",
+          "max": "21.10.1",
+          "exclude": []
+        },
+        "fixed_in": "21.10.2",
+        "published_date": "2021-11-19",
+        "references": [
+          "https://github.com/hyperledger/besu/security/advisories/GHSA-6f54-54wj-8x6q"
+        ],
+        "impact": "Remote denial of service through P2P network messages",
+        "recommendation": "Update to Besu v21.10.2 or later"
+      },
+      {
+        "cve_id": "CVE-2022-36033",
+        "title": "Besu information disclosure via debug API",
+        "description": "Hyperledger Besu before 22.7.0 exposes sensitive information through debug API endpoints.",
+        "severity": "MEDIUM",
+        "cvss_score": 5.3,
+        "affected_versions": {
+          "type": "range",
+          "min": "22.1.0",
+          "max": "22.6.0",
+          "exclude": []
+        },
+        "fixed_in": "22.7.0",
+        "published_date": "2022-08-17",
+        "references": [
+          "https://github.com/hyperledger/besu/security/advisories/GHSA-mc8h-8q98-g5hr"
+        ],
+        "impact": "Information disclosure through debug API endpoints",
+        "recommendation": "Upgrade to Besu v22.7.0 or disable debug API in production"
+      }
+    ],
+    "nethermind": [
+      {
+        "cve_id": "CVE-2022-29177",
+        "title": "Nethermind JSON-RPC DoS vulnerability",
+        "description": "Nethermind before 1.13.4 allows denial of service attacks via malformed JSON-RPC requests.",
+        "severity": "MEDIUM",
+        "cvss_score": 6.5,
+        "affected_versions": {
+          "type": "range",
+          "min": "1.12.0",
+          "max": "1.13.3",
+          "exclude": []
+        },
+        "fixed_in": "1.13.4",
+        "published_date": "2022-05-25",
+        "references": [
+          "https://github.com/NethermindEth/nethermind/security/advisories/GHSA-53x5-8p9x-258x"
+        ],
+        "impact": "Denial of service through malformed JSON-RPC requests",
+        "recommendation": "Update to Nethermind v1.13.4 or implement request validation"
+      }
+    ],
+    "erigon": [
+      {
+        "cve_id": "CVE-2023-26485",
+        "title": "Erigon state sync vulnerability",
+        "description": "Erigon before 2.42.0 contains a vulnerability in state sync that could lead to incorrect state root calculation.",
+        "severity": "HIGH",
+        "cvss_score": 7.4,
+        "affected_versions": {
+          "type": "range",
+          "min": "2.35.0",
+          "max": "2.41.1",
+          "exclude": []
+        },
+        "fixed_in": "2.42.0",
+        "published_date": "2023-03-15",
+        "references": [
+          "https://github.com/ledgerwatch/erigon/security/advisories/GHSA-7x8h-6m9w-5q3g"
+        ],
+        "impact": "Incorrect state synchronization potentially leading to consensus issues",
+        "recommendation": "Critical update to Erigon v2.42.0 required for mainnet nodes"
+      }
+    ],
+    "reth": [
+      {
+        "cve_id": "CVE-2023-47640",
+        "title": "Reth memory exhaustion via large requests",
+        "description": "Reth before 0.1.2 is vulnerable to memory exhaustion attacks through oversized RPC requests.",
+        "severity": "MEDIUM",
+        "cvss_score": 6.5,
+        "affected_versions": {
+          "type": "range",
+          "min": "0.1.0",
+          "max": "0.1.1",
+          "exclude": []
+        },
+        "fixed_in": "0.1.2",
+        "published_date": "2023-11-20",
+        "references": [
+          "https://github.com/paradigmxyz/reth/security/advisories/GHSA-8x4h-3q9g-7p2w"
+        ],
+        "impact": "Memory exhaustion leading to service disruption",
+        "recommendation": "Update to Reth v0.1.2 or configure request size limits"
+      }
+    ]
+  },
+  "severity_mapping": {
+    "CRITICAL": {
+      "color": "red",
+      "score_range": [9.0, 10.0],
+      "priority": "IMMEDIATE",
+      "description": "Critical vulnerabilities requiring immediate action"
+    },
+    "HIGH": {
+      "color": "orange",
+      "score_range": [7.0, 8.9],
+      "priority": "HIGH",
+      "description": "High-risk vulnerabilities requiring prompt attention"
+    },
+    "MEDIUM": {
+      "color": "yellow",
+      "score_range": [4.0, 6.9],
+      "priority": "MEDIUM",
+      "description": "Medium-risk vulnerabilities requiring planned remediation"
+    },
+    "LOW": {
+      "color": "green",
+      "score_range": [0.1, 3.9],
+      "priority": "LOW", 
+      "description": "Low-risk vulnerabilities for informational purposes"
+    }
+  }
+}

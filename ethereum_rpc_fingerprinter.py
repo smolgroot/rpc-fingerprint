@@ -28,6 +28,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.live import Live
 from rich import box
+from cve_database import CVEDatabase, Vulnerability
 
 # Initialize colorama for cross-platform colored output
 init()
@@ -61,6 +62,8 @@ class FingerprintResult:
     response_time: Optional[float] = None
     errors: Optional[List[str]] = None
     additional_info: Optional[Dict[str, Any]] = None
+    vulnerabilities: Optional[List[Vulnerability]] = None
+    security_risk_level: Optional[str] = None
 
 class EthereumRPCFingerprinter:
     """
@@ -71,6 +74,13 @@ class EthereumRPCFingerprinter:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.timeout = timeout
+        
+        # Initialize CVE database
+        try:
+            self.cve_database = CVEDatabase()
+        except Exception as e:
+            print(f"Warning: Could not load CVE database: {e}")
+            self.cve_database = None
         
     def fingerprint(self, endpoint: str) -> FingerprintResult:
         """
@@ -164,6 +174,9 @@ class EthereumRPCFingerprinter:
             
             # Additional fingerprinting techniques
             result.additional_info = self._advanced_fingerprinting(w3, endpoint)
+            
+            # Check for CVE vulnerabilities
+            result = self._check_vulnerabilities(result)
             
         except Exception as e:
             result.errors.append(f"General connection error: {e}")
@@ -558,6 +571,70 @@ class EthereumRPCFingerprinter:
             info['block_analysis_error'] = str(e)
         
         return info
+    
+    def _check_vulnerabilities(self, result: FingerprintResult) -> FingerprintResult:
+        """
+        Check for known CVE vulnerabilities based on the detected node implementation and version.
+        
+        Args:
+            result: FingerprintResult object to check for vulnerabilities
+            
+        Returns:
+            Updated FingerprintResult with vulnerability information
+        """
+        if not self.cve_database:
+            return result
+            
+        try:
+            # Check if we have enough information to perform vulnerability assessment
+            if not result.node_implementation or not result.node_version:
+                return result
+            
+            # Query CVE database for vulnerabilities
+            vulnerabilities = self.cve_database.check_vulnerabilities(
+                result.node_implementation,
+                result.node_version
+            )
+            
+            result.vulnerabilities = vulnerabilities
+            
+            # Calculate overall security risk level
+            result.security_risk_level = self._calculate_risk_level(vulnerabilities)
+            
+        except Exception as e:
+            if result.errors is None:
+                result.errors = []
+            result.errors.append(f"CVE vulnerability check failed: {e}")
+        
+        return result
+    
+    def _calculate_risk_level(self, vulnerabilities: List[Vulnerability]) -> str:
+        """
+        Calculate overall security risk level based on found vulnerabilities.
+        
+        Args:
+            vulnerabilities: List of vulnerabilities found
+            
+        Returns:
+            Risk level string (CRITICAL, HIGH, MEDIUM, LOW, NONE)
+        """
+        if not vulnerabilities:
+            return "NONE"
+        
+        # Determine highest severity
+        severity_scores = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
+        max_severity = 0
+        
+        for vuln in vulnerabilities:
+            severity_score = severity_scores.get(vuln.severity, 0)
+            max_severity = max(max_severity, severity_score)
+        
+        # Return the highest severity found
+        for severity, score in severity_scores.items():
+            if score == max_severity:
+                return severity
+        
+        return "LOW"
 
 class AsyncEthereumRPCFingerprinter:
     """
@@ -1074,6 +1151,98 @@ def print_fingerprint_result(result: FingerprintResult):
             additional_table.add_row(key.replace('_', ' ').title(), str(value))
         
         console.print(additional_table)
+    
+    # Security Vulnerabilities (NEW SECTION)
+    if result.vulnerabilities is not None:
+        # Create security overview panel
+        security_style = "green"
+        security_symbol = "🛡️"
+        security_message = "No known vulnerabilities found"
+        
+        if result.vulnerabilities:
+            # Determine overall security status style based on highest severity
+            if result.security_risk_level == "CRITICAL":
+                security_style = "bold red"
+                security_symbol = "🚨"
+                security_message = f"CRITICAL security risk - {len(result.vulnerabilities)} vulnerability(s) found"
+            elif result.security_risk_level == "HIGH":
+                security_style = "bold orange3"
+                security_symbol = "⚠️"
+                security_message = f"HIGH security risk - {len(result.vulnerabilities)} vulnerability(s) found"
+            elif result.security_risk_level == "MEDIUM":
+                security_style = "yellow"
+                security_symbol = "⚠️"
+                security_message = f"MEDIUM security risk - {len(result.vulnerabilities)} vulnerability(s) found"
+            elif result.security_risk_level == "LOW":
+                security_style = "bright_blue"
+                security_symbol = "ℹ️"
+                security_message = f"LOW security risk - {len(result.vulnerabilities)} vulnerability(s) found"
+        
+        # Security overview panel
+        security_text = Text(f"{security_symbol} {security_message}", style=security_style)
+        security_panel = Panel(
+            security_text, 
+            title="🔒 Security Assessment", 
+            border_style=security_style,
+            box=box.ROUNDED
+        )
+        console.print(security_panel)
+        
+        # Detailed vulnerability table if vulnerabilities exist
+        if result.vulnerabilities:
+            vuln_table = Table(title=f"⚠️ Vulnerability Details ({len(result.vulnerabilities)} found)", box=box.ROUNDED)
+            vuln_table.add_column("CVE ID", style="cyan", no_wrap=True)
+            vuln_table.add_column("Severity", style="white", no_wrap=True)
+            vuln_table.add_column("CVSS", style="white", no_wrap=True, justify="center")
+            vuln_table.add_column("Title", style="white", max_width=40)
+            vuln_table.add_column("Fixed In", style="green", no_wrap=True)
+            
+            for vuln in result.vulnerabilities:
+                # Style severity with colors
+                severity_styles = {
+                    "CRITICAL": "bold red",
+                    "HIGH": "bold orange3", 
+                    "MEDIUM": "yellow",
+                    "LOW": "bright_blue"
+                }
+                severity_style = severity_styles.get(vuln.severity, "white")
+                
+                # Style CVSS score with colors
+                cvss_style = "white"
+                if vuln.cvss_score >= 9.0:
+                    cvss_style = "bold red"
+                elif vuln.cvss_score >= 7.0:
+                    cvss_style = "bold orange3"
+                elif vuln.cvss_score >= 4.0:
+                    cvss_style = "yellow"
+                else:
+                    cvss_style = "green"
+                
+                vuln_table.add_row(
+                    vuln.cve_id,
+                    f"[{severity_style}]{vuln.severity}[/{severity_style}]",
+                    f"[{cvss_style}]{vuln.cvss_score}[/{cvss_style}]",
+                    vuln.title,
+                    vuln.fixed_in
+                )
+            
+            console.print(vuln_table)
+            
+            # Recommendations section for critical/high vulnerabilities
+            critical_high_vulns = [v for v in result.vulnerabilities if v.severity in ["CRITICAL", "HIGH"]]
+            if critical_high_vulns:
+                rec_table = Table(title="🔧 Security Recommendations", box=box.ROUNDED)
+                rec_table.add_column("Priority", style="red", no_wrap=True)
+                rec_table.add_column("Recommendation", style="white")
+                
+                for vuln in critical_high_vulns:
+                    priority = "URGENT" if vuln.severity == "CRITICAL" else "HIGH"
+                    rec_table.add_row(
+                        f"[bold red]{priority}[/bold red]" if priority == "URGENT" else f"[orange3]{priority}[/orange3]",
+                        vuln.recommendation
+                    )
+                
+                console.print(rec_table)
     
     # Add some spacing
     console.print()

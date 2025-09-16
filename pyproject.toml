@@ -4,19 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ethereum-rpc-fingerprinter"
-version = "1.1.2"
+version = "1.2.0"
 description = "A comprehensive tool for fingerprinting Ethereum RPC endpoints"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Smolgroot", email = "smolgroot@no-doxx.com"}
 ]
 maintainers = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Smolgroot", email = "smolgroot@no-doxx.com"}
 ]
 keywords = [
     "ethereum", "rpc", "fingerprinting", "blockchain", "web3", 
-    "geth", "besu", "nethermind", "erigon", "security", "analysis"
+    "geth", "besu", "nethermind", "erigon", "security", "analysis",
+    "cve", "vulnerability", "detection", "cli", "tool"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -45,6 +46,8 @@ dependencies = [
     "tabulate>=0.9.0",
     "pyyaml>=6.0",
     "click>=8.0.0",
+    "rich>=13.0.0",
+    "packaging>=21.0",
 ]
 
 [project.optional-dependencies]
@@ -69,7 +72,7 @@ ethereum-rpc-fingerprinter = "ethereum_rpc_fingerprinter:cli"
 erf = "ethereum_rpc_fingerprinter:cli"
 
 [tool.setuptools]
-py-modules = ["ethereum_rpc_fingerprinter"]
+py-modules = ["ethereum_rpc_fingerprinter", "cve_database"]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -80,7 +83,7 @@ line-length = 88
 target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
 
 [tool.mypy]
-python_version = "1.1.2"
+python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

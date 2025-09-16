@@ -2,6 +2,7 @@ include README.md
 include LICENSE
 include requirements.txt
 include pyproject.toml
+include cve_database.json
 include *.py
 recursive-include tests *.py
 global-exclude __pycache__
